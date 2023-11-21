@@ -1,8 +1,12 @@
 import torch
+import torch.nn as nn
+import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 import os
 from PIL import Image
+
+from VC import AEFormer
 
 class Viemo90K(Dataset):
     def __init__(self, 
@@ -21,8 +25,9 @@ class Viemo90K(Dataset):
                 os.path.join(folder, "im1.png"),
                 os.path.join(folder, "im3.png"),
                 os.path.join(folder, "im5.png"),
-                os.path.join(folder, "im7.png"),
             ]
+        
+        print(self.imagePaths[0: 5])
 
     def __len__(self):
         return len(self.imagePaths)
@@ -49,4 +54,37 @@ dataset = Viemo90K(
     transform = transform
 )
 
-dataloader = DataLoader(dataset, batch_size=32, shuffle = True, num_workers = 4)
+dataloader = DataLoader(dataset, batch_size = 32, shuffle = True)
+
+# 初始化模型、损失函数和优化器
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = AEFormer().to(device)
+criterion = nn.MSELoss()
+optimizer = optim.Adam(model.parameters(), lr=0.01, momentum=0.9)
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size = 10, gamma = 0.1)
+
+
+# 训练模型
+num_epochs = 10000
+for epoch in range(num_epochs):
+    model.train()
+
+    for i, orignalImage in enumerate(dataloader):
+        inputs = orignalImage.to(device)
+
+        predTokens = model(inputs)
+
+        predImage = model.unpatchify(predTokens)
+
+        loss = criterion(orignalImage, predImage)
+
+        optimizer.zero_grad()
+        loss.backward()
+
+        optimizer.step()
+        scheduler.step()
+
+        if (i + 1) % 10 == 0:
+            print(f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{len(dataloader)}], Loss: {loss.item():.4f}')
+
+

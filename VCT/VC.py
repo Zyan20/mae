@@ -125,13 +125,13 @@ class AEFormer(nn.Module):
 
     def forward(self, imgs):
         z = self.forward_encoder(imgs)
-        pred = self.forward_decoder(z)
+        pred, cls_token = self.forward_decoder(z)
 
-        return z, pred
+        return pred, z, cls_token
     
 
     
-    def _patchify(self, imgs):
+    def patchify(self, imgs):
         """
         imgs: (N, 3, H, W)
         x: (N, L, patch_size**2 *3)
@@ -145,7 +145,7 @@ class AEFormer(nn.Module):
         x = x.reshape(shape=(imgs.shape[0], h * w, p**2 * 3))
         return x
 
-    def _unpatchify(self, x):
+    def unpatchify(self, x):
         """
         x: (N, L, patch_size**2 *3)
         imgs: (N, 3, H, W)
@@ -168,7 +168,17 @@ if __name__ == "__main__":
         embed_dim = 128,
         decoder_embed_dim = 128,
         depth = 6
-    ).cuda()
+    )
+
+    x = torch.randn((1, 3, 224, 224))
+
+    y, _, _ = aeFormer(x)
+
+    print(y.size())
+
+    pred_img = aeFormer.unpatchify(y)
+
+    print(pred_img.size())
 
     summary(aeFormer, (3, 224, 224))
 
