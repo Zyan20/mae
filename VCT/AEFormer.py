@@ -14,7 +14,7 @@ class AEFormer(nn.Module):
         img_size = 224, patch_size = 16, in_chans = 3,
         embed_dim = 1024, depth = 6, num_heads = 16,
         decoder_embed_dim = 512, decoder_depth = 6, decoder_num_heads = 16,
-        mlp_ratio = 4., norm_layer = nn.LayerNorm, norm_pix_loss = False
+        mlp_ratio = 4., norm_layer = nn.LayerNorm, norm_pix_loss = False,
     ):
         super().__init__()
 
@@ -121,7 +121,13 @@ class AEFormer(nn.Module):
         cls_token = x[:, 0, :]
 
         return x, cls_token
-
+    
+    def quantize(self, z):
+        print(self.training)
+        if self.training:
+            return x + torch.nn.init.uniform_(torch.zeros_like(z), -0.5, 0.5)
+        else:
+            return torch.round(x)
 
     def forward(self, imgs):
         z = self.forward_encoder(imgs)
@@ -165,9 +171,9 @@ if __name__ == "__main__":
     from torchsummary import summary
 
     aeFormer = AEFormer(
-        embed_dim = 128,
-        decoder_embed_dim = 128,
-        depth = 6
+        embed_dim = 256,
+        decoder_embed_dim = 256,
+        depth = 5
     )
 
     x = torch.randn((1, 3, 224, 224))

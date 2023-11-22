@@ -6,7 +6,7 @@ from torchvision import transforms
 import os
 from PIL import Image
 
-from VC import AEFormer
+from AEFormer import AEFormer
 
 class Viemo90K(Dataset):
     def __init__(self, 
@@ -21,10 +21,12 @@ class Viemo90K(Dataset):
             folders = f.readlines()
         
         for folder in folders:
+            folder = folder.strip()
             self.imagePaths += [
-                os.path.join(folder, "im1.png"),
-                os.path.join(folder, "im3.png"),
-                os.path.join(folder, "im5.png"),
+                os.path.join(self.root_dir, folder, "im1.png"),
+                os.path.join(self.root_dir, folder, "im3.png"),
+                os.path.join(self.root_dir, folder, "im5.png"),
+                os.path.join(self.root_dir, folder, "im7.png"),
             ]
         
         print(self.imagePaths[0: 5])
@@ -43,48 +45,70 @@ class Viemo90K(Dataset):
 
 transform = transforms.Compose([
     transforms.RandomCrop(224),
+    transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 # 创建数据集和数据加载器
 dataset = Viemo90K(
     root_dir = 'D:/vimeo_septuplet/sequences', 
-    txt = "D:/vimeo_septuplet/sep_testlist.txt",
+    txt = "D:/vimeo_septuplet/sep_trainlist.txt",
     transform = transform
 )
 
-dataloader = DataLoader(dataset, batch_size = 32, shuffle = True)
+dataloader = DataLoader(dataset, batch_size = 256, shuffle = True)
+print(len(dataloader))
 
 # 初始化模型、损失函数和优化器
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = AEFormer().to(device)
+model = AEFormer(
+    embed_dim = 128,
+    decoder_embed_dim = 128
+)
+
 criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.01, momentum=0.9)
-scheduler = optim.lr_scheduler.StepLR(optimizer, step_size = 10, gamma = 0.1)
+optimizer = optim.Adam(model.parameters(), lr = 0.0001)
+# scheduler = optim.lr_scheduler.StepLR(optimizer, step_size = 2, gamma = 0.5, )
+scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma = 1 / 3)
+
+
+# load pertrain
+epoch = 6
+model.load_state_dict(torch.load("./save/epoch6.pth"))
 
 
 # 训练模型
-num_epochs = 10000
-for epoch in range(num_epochs):
-    model.train()
+model.to(device)
+model.train()
+num_epochs = 200
 
-    for i, orignalImage in enumerate(dataloader):
-        inputs = orignalImage.to(device)
 
-        predTokens = model(inputs)
+for _ in range(num_epochs):
+    epoch += 1
+    
+    for i, refs in enumerate(dataloader):
 
-        predImage = model.unpatchify(predTokens)
+        refs = refs.to(device)
 
-        loss = criterion(orignalImage, predImage)
+        predTokens, z, cls = model(refs)
+
+        preds = model.unpatchify(predTokens)
+
+        loss = criterion(refs, preds)
 
         optimizer.zero_grad()
         loss.backward()
 
         optimizer.step()
-        scheduler.step()
 
-        if (i + 1) % 10 == 0:
-            print(f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{len(dataloader)}], Loss: {loss.item():.4f}')
+        if i % 10 == 0:
+            lr = optimizer.state_dict()['param_groups'][0]['lr']
+            print(f'Epoch [{epoch}/{num_epochs}], Step [{i}/{len(dataloader)}], Loss: {loss.item():.4f}, LR: {lr}')
+        
+        if epoch != 0 and epoch % 2 == 0:
+            torch.save(model.state_dict(), f'./save/epoch{epoch}.pth')
 
+
+    scheduler.step()
 
