@@ -70,12 +70,20 @@ model = AEFormer(
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr = 0.0001)
 # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size = 2, gamma = 0.5, )
-scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma = 1 / 3)
+scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma = 1 / 4)
 
 
 # load pertrain
-epoch = 6
-model.load_state_dict(torch.load("./save/epoch6.pth"))
+pretrain = False
+epoch = 0
+
+if pretrain:
+    state = torch.load("./save/epoch6.pth")
+    model.load_state_dict(state["model"])
+    optimizer.load_state_dict(optimizer["optimizer"])
+    epoch = optimizer["epoch"]
+
+
 
 
 # 训练模型
@@ -85,8 +93,6 @@ num_epochs = 200
 
 
 for _ in range(num_epochs):
-    epoch += 1
-    
     for i, refs in enumerate(dataloader):
 
         refs = refs.to(device)
@@ -106,9 +112,16 @@ for _ in range(num_epochs):
             lr = optimizer.state_dict()['param_groups'][0]['lr']
             print(f'Epoch [{epoch}/{num_epochs}], Step [{i}/{len(dataloader)}], Loss: {loss.item():.4f}, LR: {lr}')
         
-        if epoch != 0 and epoch % 2 == 0:
+        if epoch != 0 and epoch % 4 == 0:
+            torch.save({
+                "model": model.state_dict(), 
+                'optimizer': optimizer.state_dict(), 
+                'epoch':epoch
+            })
+
             torch.save(model.state_dict(), f'./save/epoch{epoch}.pth')
 
 
     scheduler.step()
+    epoch += 1
 
