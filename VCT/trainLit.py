@@ -33,10 +33,8 @@ class AEFormerLit(L.LightningModule):
         loss = nn.functional.mse_loss(preds, refs)
         psnr = 10 * math.log10(1.0 / (loss))
 
-        
         lr_scheduler = self.lr_schedulers()
         lr_scheduler.step()
-
 
         self.log("MSE", loss)
         self.log("PSNR", psnr)
@@ -46,12 +44,10 @@ class AEFormerLit(L.LightningModule):
     
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr = 0.005)
-        scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 10, 2)
+        optimizer = optim.Adam(self.parameters(), lr = 5e-4, weight_decay = 1e-6)
+        scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 200, 2, eta_min = 1e-6)
 
         return [optimizer], [scheduler]
-    
-
 
 
 if __name__ == "__main__":
@@ -64,18 +60,18 @@ if __name__ == "__main__":
     ])
 
     dataset = Viemo90K(
-        root_dir = '/root/autodl-tmp/vimeo_septuplet/sequences',    # edit here
-        txt = "/root/autodl-tmp/vimeo_septuplet/sep_trainlist.txt",
+        root_dir = 'D:/vimeo_septuplet/sequences',    # edit here
+        txt = "D:/vimeo_septuplet/sep_trainlist.txt",
         transform = transform
     )
     dataloader = DataLoader(dataset, batch_size = 256, shuffle = True)
 
-    aeFormer = AEFormerLit()
+    # aeFormer = AEFormerLit()
+    aeFormer = AEFormerLit.load_from_checkpoint("./lightning_logs/version_1/checkpoints/epoch=37-step=4826.ckpt")
     
     trainer = L.Trainer(
         max_epochs = 1000, 
-        log_every_n_steps = 10,
-        default_root_dir = "/root/tf-logs/"
+        log_every_n_steps = 5,
     )
     
     trainer.fit(model = aeFormer, train_dataloaders = dataloader)

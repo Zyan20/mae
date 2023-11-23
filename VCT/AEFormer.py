@@ -122,7 +122,8 @@ class AEFormer(nn.Module):
         x = self.decoder_norm(x)
 
         # predictor projection
-        x = self.decoder_pred(x)
+        # x = self.decoder_pred(x)
+        x = self.decoder_pred_mlp(x)
 
         # remove cls token
         x = x[:, 1:, :]
