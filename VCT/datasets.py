@@ -1,14 +1,8 @@
-import torch
-import torch.nn as nn
-
 from torch.utils.data import DataLoader, Dataset
-from torchvision.utils import save_image
-from torchvision import transforms
 
+from torchvision import transforms
 import os
 from PIL import Image
-
-from AEFormer import AEFormer
 
 
 class Viemo90K(Dataset):
@@ -46,58 +40,9 @@ class Viemo90K(Dataset):
         return image
 
 
-# load model
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = "cpu"
-
-model = AEFormer(
-    embed_dim = 128,
-    decoder_embed_dim = 128,
-    depth = 4,
-    decoder_depth = 4
-)
-
-model.load_state_dict(torch.load("./save/epoch75.pth")["model"])
-model.eval()
-criterion = nn.MSELoss()
-
-
-
 transform = transforms.Compose([
     transforms.RandomCrop(224),
+    transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
-
-# dataset
-dataset = Viemo90K(
-    root_dir = '/root/autodl-tmp/vimeo_septuplet/sequences',    # edit here
-    txt = "/root/autodl-tmp/vimeo_septuplet/sep_testlist.txt",
-    transform = transform
-)
-dataloader = DataLoader(dataset, batch_size = 4, shuffle = True)
-
-
-with torch.no_grad():
-    model.eval()
-    model.to(device)
-
-    for i, images in enumerate(dataloader):
-        images = images.to(device)
-
-        predTokens, z, cls = model(images)
-
-        predImages = model.unpatchify(predTokens)
-
-        loss = criterion(images, predImages)
-
-        save_image(images, "./save/orignal.png")
-        save_image(predImages, "./save/pred.png")
-        # save_image(cls, "./save/clsToken.png")
-
-        print(loss.item())
-
-        break
-
-
-

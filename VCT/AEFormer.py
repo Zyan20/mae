@@ -46,6 +46,14 @@ class AEFormer(nn.Module):
 
         self.decoder_norm = norm_layer(decoder_embed_dim)
         self.decoder_pred = nn.Linear(decoder_embed_dim, patch_size**2 * in_chans, bias=True) # decoder to patch
+
+        self.decoder_pred_mlp = nn.Sequential(
+            nn.Linear(decoder_embed_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 512),
+            nn.ReLU(),
+            nn.Linear(512, patch_size**2 * in_chans),
+        )
         # --------------------------------------------------------------------------
 
         self.norm_pix_loss = norm_pix_loss
